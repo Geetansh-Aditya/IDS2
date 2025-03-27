@@ -30,8 +30,22 @@ RULES = [
 ]
 
 # Function to Analyze Packets
+captured_packets = []  # Store live packet data
+
 def packet_callback(packet):
     if IP in packet:
+        # Store all captured packets (limit to avoid memory overflow)
+        packet_info = {
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
+            "src_ip": packet[IP].src,
+            "dst_ip": packet[IP].dst,
+            "protocol": "TCP" if TCP in packet else "UDP" if UDP in packet else "Other"
+        }
+        if len(captured_packets) > 100:
+            captured_packets.pop(0)  # Remove oldest entry
+        captured_packets.append(packet_info)
+
+        # Threat detection logic
         for rule in RULES:
             if rule["protocol"] == "TCP" and TCP in packet and (rule["port"] is None or packet[TCP].dport == rule["port"]):
                 if Raw in packet:
@@ -45,6 +59,10 @@ def packet_callback(packet):
                         }
                         threats.append(alert)
                         print(f"[ALERT] {alert}")
+
+@app.route('/api/packets')
+def get_packets():
+    return jsonify(captured_packets)
 
 # Flask Routes
 @app.route('/')

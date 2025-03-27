@@ -6,34 +6,59 @@
     <title>Intrusion Detection Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        .container { width: 80%; margin: auto; }
-        canvas { max-width: 600px; margin: 20px auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; }
+        .container { width: 90%; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-around; }
+        canvas { max-width: 400px; margin: 20px auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
         th, td { border: 1px solid black; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
+        th { background-color: #333; color: white; }
+        .section { width: 48%; background: white; padding: 15px; margin: 10px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); border-radius: 5px; }
+        .high { color: red; font-weight: bold; }
+        .medium { color: orange; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>Intrusion Detection System Dashboard</h1>
     <div class="container">
-        <canvas id="threatPieChart"></canvas>
-        <canvas id="threatBarChart"></canvas>
+        <div class="section">
+            <h2>Threat Summary</h2>
+            <canvas id="threatPieChart"></canvas>
+            <canvas id="threatBarChart"></canvas>
+        </div>
+        <div class="section">
+            <h2>Live Captured Packets</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Protocol</th>
+                    </tr>
+                </thead>
+                <tbody id="packetTable">
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <h2>Live Attack Logs</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>IP Address</th>
-                <th>Threat Type</th>
-                <th>Severity</th>
-            </tr>
-        </thead>
-        <tbody id="threatTable">
-        </tbody>
-    </table>
+    <div class="container">
+        <div class="section">
+            <h2>Live Attack Logs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>IP Address</th>
+                        <th>Threat Type</th>
+                        <th>Severity</th>
+                    </tr>
+                </thead>
+                <tbody id="threatTable">
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
         async function fetchThreats() {
@@ -47,9 +72,24 @@
                     <td>${threat.timestamp}</td>
                     <td>${threat.ip}</td>
                     <td>${threat.threat}</td>
-                    <td style="color: ${threat.severity === 'high' ? 'red' : 'orange'};">
-                        ${threat.severity}
-                    </td>
+                    <td class="${threat.severity}">${threat.severity}</td>
+                </tr>`;
+                table.innerHTML += row;
+            });
+        }
+
+        async function fetchPackets() {
+            const response = await fetch('/api/packets');
+            const data = await response.json();
+
+            const table = document.getElementById('packetTable');
+            table.innerHTML = "";  // Clear previous entries
+            data.forEach(packet => {
+                let row = `<tr>
+                    <td>${packet.timestamp}</td>
+                    <td>${packet.src_ip}</td>
+                    <td>${packet.dst_ip}</td>
+                    <td>${packet.protocol}</td>
                 </tr>`;
                 table.innerHTML += row;
             });
@@ -87,6 +127,7 @@
 
         async function refreshDashboard() {
             await fetchThreats();
+            await fetchPackets();
             await updateCharts();
         }
 
