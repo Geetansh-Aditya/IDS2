@@ -4,6 +4,7 @@ from collections import deque
 import threading
 import time
 import re
+from scapy.layers.inet import IP_PROTOS
 
 app = Flask(__name__)
 
@@ -205,31 +206,35 @@ def packet_callback(packet):
 
         src_ip = packet[IP].src
         dst_ip = packet[IP].dst
-        proto = packet[IP].proto
+        proto_num = packet[IP].proto
+        proto_name = IP_PROTOS.get(proto_num, 'unknown').upper()
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
 
         packet_data = {
             "timestamp": timestamp,
             "src_ip": src_ip,
             "dst_ip": dst_ip,
-            "protocol": proto,
+            "protocol": proto_name,
             "length": len(packet)
         }
 
         # Collect basic packet info
         if TCP in packet:
+            tcp_layer = packet[TCP]
             packet_data.update({
-                "sport": packet[TCP].sport,
-                "dport": packet[TCP].dport,
-                "flags": packet[TCP].flags
+                "sport": tcp_layer.sport,
+                "dport": tcp_layer.dport,
+                "flags": tcp_layer.flags
             })
         elif UDP in packet:
+            udp_layer = packet[UDP]
             packet_data.update({
-                "sport": packet[UDP].sport,
-                "dport": packet[UDP].dport
+                "sport": udp_layer.sport,
+                "dport": udp_layer.dport
             })
         elif ICMP in packet:
-            packet_data["type"] = packet[ICMP].type
+            icmp_layer = packet[ICMP]
+            packet_data["type"] = icmp_layer.type
 
         # Stateful detection for ICMP flood
         if ICMP in packet:
@@ -242,12 +247,18 @@ def packet_callback(packet):
         raw_data = packet[Raw].load if Raw in packet else b''
         for rule in RULES:
             if not rule.get('stateful', False):
-                if rule['protocols'] and packet_data['protocol'] not in [p.upper() for p in rule['protocols']]:
-                    continue
+                # Check protocol match
+                if rule.get('protocols'):
+                    if proto_name not in rule['protocols']:
+                        continue
 
-                if 'ports' in rule and packet_data.get('dport') not in rule['ports']:
-                    continue
+                # Check port match if specified
+                if 'ports' in rule:
+                    dport = packet_data.get('dport')
+                    if dport is None or dport not in rule['ports']:
+                        continue
 
+                # Check payload patterns
                 if raw_data and 'patterns' in rule:
                     for pattern in rule['patterns']:
                         if re.search(pattern, raw_data, re.IGNORECASE):
@@ -259,7 +270,7 @@ def packet_callback(packet):
                                 "details": f"Matched pattern: {pattern.decode(errors='ignore')}"
                             }
                             update_dashboard_data(packet_data, alert)
-                            break
+                            break  # No need to check other patterns for this rule
 
         update_dashboard_data(packet_data, None)
 
