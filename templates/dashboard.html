@@ -3,60 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intrusion Detection Dashboard</title>
+    <title>Advanced Intrusion Detection Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; }
-        .container { width: 90%; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-around; }
-        canvas { max-width: 400px; margin: 20px auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { border: 1px solid black; padding: 8px; text-align: center; }
-        th { background-color: #333; color: white; }
-        .section { width: 48%; background: white; padding: 15px; margin: 10px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); border-radius: 5px; }
-        .high { color: red; font-weight: bold; }
-        .medium { color: orange; font-weight: bold; }
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --text-primary: #e7e7e7;
+            --accent-red: #ff4757;
+            --accent-orange: #ff6b6b;
+            --accent-blue: #4b6eaf;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .dashboard-card {
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .dashboard-card:hover {
+            transform: scale(1.02);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-blue);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .card-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        .real-time-indicator {
+            height: 10px;
+            width: 10px;
+            background-color: #48dbfb;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        .scrollable-table {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: var(--accent-blue);
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        .severity-high { color: var(--accent-red); font-weight: bold; }
+        .severity-medium { color: var(--accent-orange); font-weight: bold; }
+        .ip-traffic-card .ip-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+        }
+        .ip-traffic-card .ip-entry:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
-    <h1>Intrusion Detection System Dashboard</h1>
-    <div class="container">
-        <div class="section">
-            <h2>Threat Summary</h2>
+    <h1 style="text-align: center; color: var(--text-primary);">Advanced Intrusion Detection System</h1>
+
+    <div class="dashboard-container">
+        <!-- Threat Summary Card -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2>Threat Visualization</h2>
+                <div class="real-time-indicator"></div>
+            </div>
             <canvas id="threatPieChart"></canvas>
             <canvas id="threatBarChart"></canvas>
         </div>
-        <div class="section">
-            <h2>Live Captured Packets</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Source IP</th>
-                        <th>Destination IP</th>
-                        <th>Protocol</th>
-                    </tr>
-                </thead>
-                <tbody id="packetTable">
-                </tbody>
-            </table>
-        </div>
-    </div>
 
-    <div class="container">
-        <div class="section">
-            <h2>Live Attack Logs</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>IP Address</th>
-                        <th>Threat Type</th>
-                        <th>Severity</th>
-                    </tr>
-                </thead>
-                <tbody id="threatTable">
-                </tbody>
-            </table>
+        <!-- Live Attacks Card -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2>Live Attack Logs</h2>
+                <div class="real-time-indicator"></div>
+            </div>
+            <div class="scrollable-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>IP</th>
+                            <th>Threat</th>
+                            <th>Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="threatTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Packet Capture Card -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2>Captured Network Packets</h2>
+                <div class="real-time-indicator"></div>
+            </div>
+            <div class="scrollable-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Source IP</th>
+                            <th>Destination IP</th>
+                            <th>Protocol</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packetTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- IP Traffic Analysis Card -->
+        <div class="dashboard-card ip-traffic-card">
+            <div class="card-header">
+                <h2>IP Traffic Analysis</h2>
+                <div class="real-time-indicator"></div>
+            </div>
+            <div id="ipTrafficContainer">
+                <!-- IP traffic entries will be dynamically added here -->
+            </div>
         </div>
     </div>
 
@@ -66,13 +167,13 @@
             const data = await response.json();
 
             const table = document.getElementById('threatTable');
-            table.innerHTML = "";  // Clear table
+            table.innerHTML = "";
             data.forEach(threat => {
                 let row = `<tr>
                     <td>${threat.timestamp}</td>
                     <td>${threat.ip}</td>
                     <td>${threat.threat}</td>
-                    <td class="${threat.severity}">${threat.severity}</td>
+                    <td class="severity-${threat.severity.toLowerCase()}">${threat.severity}</td>
                 </tr>`;
                 table.innerHTML += row;
             });
@@ -83,7 +184,7 @@
             const data = await response.json();
 
             const table = document.getElementById('packetTable');
-            table.innerHTML = "";  // Clear previous entries
+            table.innerHTML = "";
             data.forEach(packet => {
                 let row = `<tr>
                     <td>${packet.timestamp}</td>
@@ -92,6 +193,26 @@
                     <td>${packet.protocol}</td>
                 </tr>`;
                 table.innerHTML += row;
+            });
+        }
+
+        async function fetchIPTraffic() {
+            const response = await fetch('/api/ip-traffic');
+            const data = await response.json();
+
+            const container = document.getElementById('ipTrafficContainer');
+            container.innerHTML = "";
+
+            // Sort IPs by total traffic volume
+            const sortedIPs = data.sort((a, b) => b.total_traffic - a.total_traffic);
+
+            sortedIPs.forEach(ip => {
+                let entry = `
+                <div class="ip-entry">
+                    <span>${ip.address}</span>
+                    <span>Traffic: ${ip.total_traffic} MB</span>
+                </div>`;
+                container.innerHTML += entry;
             });
         }
 
@@ -106,8 +227,12 @@
                     labels: ['High Severity', 'Medium Severity'],
                     datasets: [{
                         data: [data.high, data.medium],
-                        backgroundColor: ['red', 'orange']
+                        backgroundColor: ['#ff4757', '#ff6b6b']
                     }]
+                },
+                options: {
+                    responsive: true,
+                    title: { display: true, text: 'Threat Severity Distribution' }
                 }
             });
 
@@ -119,8 +244,16 @@
                     datasets: [{
                         label: 'Threat Count',
                         data: [data.high, data.medium],
-                        backgroundColor: ['red', 'orange']
+                        backgroundColor: ['#ff4757', '#ff6b6b']
                     }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        yAxes: [{
+                            ticks: { beginAtZero: true }
+                        }]
+                    }
                 }
             });
         }
@@ -128,11 +261,13 @@
         async function refreshDashboard() {
             await fetchThreats();
             await fetchPackets();
+            await fetchIPTraffic();
             await updateCharts();
         }
 
-        setInterval(refreshDashboard, 5000);
+        // Initial dashboard load and then refresh every 5 seconds
         refreshDashboard();
+        setInterval(refreshDashboard, 5000);
     </script>
 </body>
 </html>
