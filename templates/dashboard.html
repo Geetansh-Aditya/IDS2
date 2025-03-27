@@ -24,8 +24,14 @@
         }
         .dashboard-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 1fr 1fr;
             gap: 20px;
+        }
+        .dashboard-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
         }
         .dashboard-card {
             background-color: var(--bg-secondary);
@@ -62,7 +68,7 @@
             100% { opacity: 0.7; }
         }
         .scrollable-table {
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
         }
         table {
@@ -79,6 +85,7 @@
             color: white;
             position: sticky;
             top: 0;
+            z-index: 10;
         }
         .severity-high { color: var(--accent-red); font-weight: bold; }
         .severity-medium { color: var(--accent-orange); font-weight: bold; }
@@ -96,17 +103,7 @@
 <body>
     <h1 style="text-align: center; color: var(--text-primary);">Advanced Intrusion Detection System</h1>
 
-    <div class="dashboard-container">
-        <!-- Threat Summary Card -->
-        <div class="dashboard-card">
-            <div class="card-header">
-                <h2>Threat Visualization</h2>
-                <div class="real-time-indicator"></div>
-            </div>
-            <canvas id="threatPieChart"></canvas>
-            <canvas id="threatBarChart"></canvas>
-        </div>
-
+    <div class="dashboard-row">
         <!-- Live Attacks Card -->
         <div class="dashboard-card">
             <div class="card-header">
@@ -128,8 +125,21 @@
             </div>
         </div>
 
+        <!-- IP Traffic Analysis Card -->
+        <div class="dashboard-card ip-traffic-card">
+            <div class="card-header">
+                <h2>IP Traffic Analysis</h2>
+                <div class="real-time-indicator"></div>
+            </div>
+            <div id="ipTrafficContainer">
+                <!-- IP traffic entries will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-row">
         <!-- Packet Capture Card -->
-        <div class="dashboard-card">
+        <div class="dashboard-card" style="grid-column: span 2;">
             <div class="card-header">
                 <h2>Captured Network Packets</h2>
                 <div class="real-time-indicator"></div>
@@ -146,17 +156,6 @@
                     </thead>
                     <tbody id="packetTable"></tbody>
                 </table>
-            </div>
-        </div>
-
-        <!-- IP Traffic Analysis Card -->
-        <div class="dashboard-card ip-traffic-card">
-            <div class="card-header">
-                <h2>IP Traffic Analysis</h2>
-                <div class="real-time-indicator"></div>
-            </div>
-            <div id="ipTrafficContainer">
-                <!-- IP traffic entries will be dynamically added here -->
             </div>
         </div>
     </div>
@@ -216,53 +215,10 @@
             });
         }
 
-        async function updateCharts() {
-            const response = await fetch('/api/summary');
-            const data = await response.json();
-
-            const pieCtx = document.getElementById('threatPieChart').getContext('2d');
-            new Chart(pieCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['High Severity', 'Medium Severity'],
-                    datasets: [{
-                        data: [data.high, data.medium],
-                        backgroundColor: ['#ff4757', '#ff6b6b']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    title: { display: true, text: 'Threat Severity Distribution' }
-                }
-            });
-
-            const barCtx = document.getElementById('threatBarChart').getContext('2d');
-            new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['High Severity', 'Medium Severity'],
-                    datasets: [{
-                        label: 'Threat Count',
-                        data: [data.high, data.medium],
-                        backgroundColor: ['#ff4757', '#ff6b6b']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        yAxes: [{
-                            ticks: { beginAtZero: true }
-                        }]
-                    }
-                }
-            });
-        }
-
         async function refreshDashboard() {
             await fetchThreats();
             await fetchPackets();
             await fetchIPTraffic();
-            await updateCharts();
         }
 
         // Initial dashboard load and then refresh every 5 seconds
