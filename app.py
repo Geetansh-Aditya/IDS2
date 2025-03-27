@@ -1,11 +1,17 @@
 from flask import Flask, render_template, jsonify
-from scapy.all import sniff, IP, TCP, UDP, Raw
+from scapy.all import sniff, IP, TCP, UDP, ICMP, Raw
+from collections import deque
 import threading
 import time
+import re
 
 app = Flask(__name__)
-threats = []
 
+# Thread-safe data structures
+MAX_ENTRIES = 1000
+packets = deque(maxlen=MAX_ENTRIES)
+threats = deque(maxlen=MAX_ENTRIES)
+data_lock = threading.Lock()
 # Large Custom Rule Set (100+ Diverse Rules)
 RULES = [
     {"name": "SQL Injection Attempt", "pattern": [b"SELECT", b"DROP", b"INSERT", b"UNION", b"OR 1=1", b"--"], "protocol": "TCP", "port": 80, "severity": "high"},
@@ -28,47 +34,124 @@ RULES = [
     {"name": "ICMP Flood Attack", "pattern": [], "protocol": "ICMP", "port": None, "severity": "high"},
     {"name": "DNS Amplification Attack", "pattern": [b"ANY", b"DNS query"], "protocol": "UDP", "port": 53, "severity": "high"}
 ]
+connection_counts = {}
+icmp_counts = {}
 
-# Function to Analyze Packets
+
+def update_dashboard_data(packet_data, alert_data):
+    with data_lock:
+        packets.append(packet_data)
+        if alert_data:
+            threats.append(alert_data)
+
+
+def detect_stateful_threats():
+    while True:
+        # Detect ICMP Flood
+        current_time = time.time()
+        for ip in list(icmp_counts.keys()):
+            count, start_time = icmp_counts[ip]
+            if current_time - start_time < RULES[2]['interval']:
+                if count > RULES[2]['threshold']:
+                    alert = {
+                        "threat": RULES[2]['name'],
+                        "ip": ip,
+                        "severity": RULES[2]['severity'],
+                        "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
+                        "details": f"{count} ICMP packets in {RULES[2]['interval']}s"
+                    }
+                    update_dashboard_data({}, alert)
+                    del icmp_counts[ip]
+            else:
+                del icmp_counts[ip]
+
+        time.sleep(1)
+
+
 def packet_callback(packet):
-    if IP in packet:
-        for rule in RULES:
-            if rule["protocol"] == "TCP" and TCP in packet and (rule["port"] is None or packet[TCP].dport == rule["port"]):
-                if Raw in packet:
-                    payload = packet[Raw].load
-                    if any(pattern in payload for pattern in rule["pattern"]):
-                        alert = {
-                            "threat": rule["name"],
-                            "ip": packet[IP].src,
-                            "severity": rule["severity"],
-                            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
-                        }
-                        threats.append(alert)
-                        print(f"[ALERT] {alert}")
+    try:
+        if IP not in packet:
+            return
 
-# Flask Routes
+        src_ip = packet[IP].src
+        dst_ip = packet[IP].dst
+        proto = packet[IP].proto
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+
+        packet_data = {
+            "timestamp": timestamp,
+            "src_ip": src_ip,
+            "dst_ip": dst_ip,
+            "protocol": proto,
+            "length": len(packet)
+        }
+
+        # Collect basic packet info
+        if TCP in packet:
+            packet_data.update({
+                "sport": packet[TCP].sport,
+                "dport": packet[TCP].dport,
+                "flags": packet[TCP].flags
+            })
+        elif UDP in packet:
+            packet_data.update({
+                "sport": packet[UDP].sport,
+                "dport": packet[UDP].dport
+            })
+        elif ICMP in packet:
+            packet_data["type"] = packet[ICMP].type
+
+        # Stateful detection for ICMP flood
+        if ICMP in packet:
+            if src_ip in icmp_counts:
+                icmp_counts[src_ip] = (icmp_counts[src_ip][0] + 1, icmp_counts[src_ip][1])
+            else:
+                icmp_counts[src_ip] = (1, time.time())
+
+        # Content-based detection
+        raw_data = packet[Raw].load if Raw in packet else b''
+        for rule in RULES:
+            if not rule.get('stateful', False):
+                if rule['protocols'] and packet_data['protocol'] not in [p.upper() for p in rule['protocols']]:
+                    continue
+
+                if 'ports' in rule and packet_data.get('dport') not in rule['ports']:
+                    continue
+
+                if raw_data and 'patterns' in rule:
+                    for pattern in rule['patterns']:
+                        if re.search(pattern, raw_data, re.IGNORECASE):
+                            alert = {
+                                "threat": rule['name'],
+                                "ip": src_ip,
+                                "severity": rule['severity'],
+                                "timestamp": timestamp,
+                                "details": f"Matched pattern: {pattern.decode(errors='ignore')}"
+                            }
+                            update_dashboard_data(packet_data, alert)
+                            break
+
+        update_dashboard_data(packet_data, None)
+
+    except Exception as e:
+        print(f"Error processing packet: {str(e)}")
+
+
 @app.route('/')
-def index():
+def dashboard():
     return render_template('dashboard.html')
 
-@app.route('/api/threats')
-def get_threats():
-    return jsonify(threats)
 
-@app.route('/api/summary')
-def get_summary():
-    summary = {"high": 0, "medium": 0}
-    for threat in threats:
-        if threat["severity"] == "high":
-            summary["high"] += 1
-        elif threat["severity"] == "medium":
-            summary["medium"] += 1
-    return jsonify(summary)
+@app.route('/api/data')
+def get_data():
+    with data_lock:
+        return jsonify({
+            "packets": list(packets)[-100:],  # Return last 100 packets
+            "threats": list(threats)[-20:]  # Return last 20 alerts
+        })
 
-# Start Packet Sniffer in a Separate Thread
-def start_sniffer():
-    sniff(filter="tcp or udp", prn=packet_callback, store=False)
 
 if __name__ == '__main__':
-    threading.Thread(target=start_sniffer, daemon=True).start()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    threading.Thread(target=detect_stateful_threats, daemon=True).start()
+    sniff(prn=packet_callback, store=False, filter="ip")
+    app.run(host='0.0.0.0', port=5000)
