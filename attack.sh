@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TARGET_IP="10.1.107.133"
+TARGET_IP="10.1.108.167"
 TARGET_WEB="http://$TARGET_IP/vuln.php?id=1"
 
 echo "Starting attacks on $TARGET_IP..."
