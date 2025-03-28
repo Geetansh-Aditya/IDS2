@@ -29,7 +29,7 @@
         }
         .dashboard-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             margin-bottom: 20px;
         }
@@ -89,15 +89,6 @@
         }
         .severity-high { color: var(--accent-red); font-weight: bold; }
         .severity-medium { color: var(--accent-orange); font-weight: bold; }
-        .ip-traffic-card .ip-entry {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #333;
-        }
-        .ip-traffic-card .ip-entry:last-child {
-            border-bottom: none;
-        }
     </style>
 </head>
 <body>
@@ -124,22 +115,11 @@
                 </table>
             </div>
         </div>
-
-        <!-- IP Traffic Analysis Card -->
-{#        <div class="dashboard-card ip-traffic-card">#}
-{#            <div class="card-header">#}
-{#                <h2>IP Traffic Analysis</h2>#}
-{#                <div class="real-time-indicator"></div>#}
-{#            </div>#}
-{#            <div id="ipTrafficContainer">#}
-{#                <!-- IP traffic entries will be dynamically added here -->#}
-{#            </div>#}
-{#        </div>#}
     </div>
 
     <div class="dashboard-row">
         <!-- Packet Capture Card -->
-        <div class="dashboard-card" style="grid-column: span 2;">
+        <div class="dashboard-card" style="grid-column: span 1;">
             <div class="card-header">
                 <h2>Captured Network Packets</h2>
                 <div class="real-time-indicator"></div>
@@ -195,30 +175,9 @@
             });
         }
 
-        async function fetchIPTraffic() {
-            const response = await fetch('/api/ip-traffic');
-            const data = await response.json();
-
-            const container = document.getElementById('ipTrafficContainer');
-            container.innerHTML = "";
-
-            // Sort IPs by total traffic volume
-            const sortedIPs = data.sort((a, b) => b.total_traffic - a.total_traffic);
-
-            sortedIPs.forEach(ip => {
-                let entry = `
-                <div class="ip-entry">
-                    <span>${ip.address}</span>
-                    <span>Traffic: ${ip.total_traffic} MB</span>
-                </div>`;
-                container.innerHTML += entry;
-            });
-        }
-
         async function refreshDashboard() {
             await fetchThreats();
             await fetchPackets();
-            await fetchIPTraffic();
         }
 
         // Initial dashboard load and then refresh every 5 seconds
